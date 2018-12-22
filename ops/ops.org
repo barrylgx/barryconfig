@@ -1,0 +1,363 @@
+#+TITLE: 常用运维命令记录
+#+AUTHOR: xielong
+#+EMAIL:  xielong1@jd.com
+#+DESCRIPTION:
+#+KEYWORDS:
+#+LANGUAGE:  cn
+#+OPTIONS: ^:{}
+#+OPTIONS:   H:4 num:t toc:t \n:nil @:t ::t |:t ^:t -:t f:t *:t <:t
+#+OPTIONS: ^:nil
+#+HTML_HEAD: <link rel="stylesheet" type="text/css" href="../orgstyle.css"/>
+
+* rpm HOWTO
+  + options
+    |---------+------------------------------------|
+    | options | description                        |
+    |---------+------------------------------------|
+    | -Uvh    | update                             |
+    | -qpl    | query package list                 |
+    | -qpi    | query package install package      |
+    | -qf     | query file which come from package |
+    | -Va     | check rpm package, view which lost |
+    | -e      | delete package                     |
+    | -qpR    | check the dependency relation      |
+    |---------+------------------------------------|
+
+  + unpack
+    : rpm2cpio pkgname | cpio -ivd
+
+
+* ssh HOWTO
+  + how to login server without password?
+    1. install sshpass
+       : yum install sshpass -y
+    2. generate id_rsa.pub file on the client
+       : ssh-keygen -f ~/.ssh/id_rsa -t rsa -N ''
+    3. save the server pub-key on the client
+       : ssh-keyscan $serverip >> ~/.ssh/known_hosts
+    4. copy the id_rsa.pub file to the server
+       : sshpass -p serverpassword ssh-copy-id user@$serverip
+       or
+       : ssh user@$serverip 'mkdir -p .ssh && cat >> .ssh/authorized_keys' < ~/.ssh/id_rsa.pub
+    5. check
+       : ssh user@$serverip pwd
+    6. if login fail
+       check file: /etc/ssh/sshd_config, and comment lines below:
+       #+BEGIN_EXAMPLE
+         RSAAuthentication yes
+         PubkeyAuthentication yes
+         AuthorizedKeysFile .ssh/authorized_keys
+       #+END_EXAMPLE
+
+  + how to the issue which logining is very slowly?
+    OpenSSH在用户登录的时候会验证IP，它根据用户的IP使用反向DNS找到主机
+    名，再使用DNS找到IP地址，最后匹配一下登录的IP是否合法。如果客户机
+    的IP没有域名，或者DNS服务器很慢或不通，那么登录就会很花时间。解决
+    办法： 在目标服务器上修改sshd服务器端配置,并重启sshd；
+    /etc/ssh/sshd_config，设置UseDNS为no即可
+    : systemctl restart sshd
+
+
+* dns HOWTO
+  + how to install dnsmasq
+    : yum install -y dnsmasq
+    : systemctl start dnsmasq
+  + modify the dnsmasq's configuration file
+    : emacs /etc/dnsmasq.conf
+    lookup keywork "listen-address"; assign the ip-list which need to
+    listen.
+  + TODO verify
+    If the host used the dnsmasq to provide service for the vms, the
+    command 'iptables -F' should be executed.
+
+
+* nfs HOWTO
+  1. install
+     server:
+     : apt-get install nfs-kernel-server portmap
+     client:
+     : apt-get install nfs-utils nfs-utils-lib
+  2. server configuration
+     : /etc/exports
+     : /home/freeman/Workstation *(rw,sync,no_root_squash)
+  3. startup
+     : systemctl reload nfs-kernel-server.service
+     : systemctl start nfs-kernel-server.service
+  4. client mount
+     : mount -t nfs -o nolock host-ipaddr:/home/freeman/Workstation /mnt/sdisk2
+
+
+* rdesktop HOWTO
+  #+BEGIN_EXAMPLE
+    $ rdesktop -u username -p password  IP  -r sound:on/off -g 1024*768
+    $ rdesktop -u freeman -p freeman 192.168.122.200 -r sound:off -g 80%  -a 32 -r disk:linux=/home/freeman/workspace -r clipboard:PRIMARYCLIPBOARD &
+    1. username和password分别是目标电脑的帐号和密码；
+    2. IP为目标电脑的IP地址（可能需要先连接VPN）；
+    3. sound：on表示传送目标电脑的声音，off则为关闭；
+    4. -g后接想要显示的分辨率，使用 -g workarea 可自适应铺满当前linux窗口大小以上，除了用户名、密码和IP必须输入，其他参数都可以缺省。
+    5. 使用 -f 参数进入全屏模式，中途可使用Ctrl+Alt+Enter组合键退出全屏（不知道的就郁闷了）;
+    6. -r disk:share_name=/local-disk 将本地磁盘映射到远程电脑，其中share_name为显示名称，可自定义，local-disk表示本地linux的一个目录，比如 /data。
+    7. -r clipboard:PRIMARYCLIPBOARD 允许在远程主机和本机之间共享剪切板，就是可以复制粘贴。
+  #+END_EXAMPLE
+
+
+* tcpdump HOWTO
+  + filter: ip/port
+    : tcpdump -i eth0 host 10.12.164.41 and \(8.8.8.8 or 4.4.4.4\)
+    : tcpdump -i eth0 -nn host www.baidu.com and \( port 80 \)
+    : tcpdump -i eth0 -nn ip and not net 192.168.0.0/24
+  + filter: protocol
+    : tcpdump -i eth0 'icmp[icmptype] != icmp-echo and icmp[icmptype] != icmp-echoreply'
+    只显示 =tcp syn/ack= 数据包:
+    : : tcpdump -i eth0 -nn host www.baidu.com and 'tcp[13] == 2 or tcp[13] == 18'
+  + filter: vxlan
+    : udp[12:4]=0x00xxxx00
+    : tcpdump  -i enp2s0f1 -nnnevv 'port 4789 and udp[8:2] = 0x0800 & 0x0800 and udp[11:4] = 32778 & 0x00FFFFFF and udp[39] = 1 and (udp[42:4] = 0x0a0a0118 or udp[46:4] = 0x0a0a0118)'
+  + wireshark hint
+    You can try using "not icmp.resp_in and icmp.type==8" which will
+    give you all icmp requests where wireshark doesn't have the
+    according response inside the capture file
+
+
+* nginx HOWTO
+  1. 修改完nginx配置文件后
+     : nginx -s reload
+
+
+* add bridge network to VM HOWTO
+  1. add a bridge on the host
+     #+BEGIN_SRC sh
+       cat > default.xml <<'EOF'
+       <network>
+         <name>default</name>
+         <uuid>27c0edaf-28a7-4675-8276-bc7fafed49c3</uuid>
+         <forward mode='nat'/>
+         <bridge name='virbr0' stp='on' delay='0'/>
+         <mac address='52:54:00:46:1d:9b'/>
+         <ip address='192.168.122.1' netmask='255.255.255.0'>
+           <dhcp>
+             <range start='192.168.122.2' end='192.168.122.254'/>
+           </dhcp>
+         </ip>
+       </network>
+       EOF
+     #+END_SRC
+  2. define
+     #+BEGIN_SRC sh
+       virsh net-define default.xml
+       virsh net-autostart  default
+       virsh net-start  default
+       virsh net-list
+       ps -ef|grep dnsmasq
+     #+END_SRC
+  3. attach a nic to VM
+     #+BEGIN_SRC sh
+       cat > network.xml <<'EOF'
+           <interface type='network'>
+             <mac address='52:54:00:42:db:41'/>
+             <source network='default'/>
+             <model type='virtio'/>
+             <address type='pci' domain='0x0000' bus='0x00' slot='0x07' function='0x0'/>
+           </interface>
+       EOF
+
+       virsh attach-device i-5lyf9to5ck ./network.xml
+       virsh domifaddr i-5lyf9to5ck
+     #+END_SRC
+
+
+* isolate cpu HOWTO
+** kernel command line
+   可以使用 /isolcpus/ 命令行参数来从使得内核调度器隔离出一个或多个cpu,防
+   止调度器在此cpu上调度任何用户空间的线程.一旦cpu被隔离,用户须要手动分配
+   进行至被隔离的cpu.具体格式如下:
+   #+BEGIN_SRC sh
+   isolcpus=2,5-7
+   isolcpus=2,4,6,8,10
+   #+END_SRC
+
+
+** grub
+   1. 修改grub配置文件
+      #+BEGIN_SRC sh
+      vim /etc/default/grub
+      # 在 GRUB_CMDLINE_LINUX 增加 isolcpus 参数
+      GRUB_CMDLINE_LINUX="crashkernel=auto rd.lvm.lv=centos/root rd.lvm.lv=centos/swap rhgb quiet isolcpus=4-7"
+      #+END_SRC
+   2. 产生grub配置文件
+      #+BEGIN_SRC sh
+      grub2-mkconfig -o /boot/grub2/grub.cfg
+      #+END_SRC
+   3. 重启动系统,检查隔离是否成功
+      #+BEGIN_SRC sh
+      cat /proc/$$/status
+      # 或
+      taskset -p $$
+      #+END_SRC
+      上述命令可以看到当前进程的可用cpu掩码已经不包含 /isolcpus/ 的cpu
+      了.
+
+
+** cpu affinity set
+   在系统运行过程中如果需要动态改变进程的 affinity, 可以使用工具 /taskset/.
+   #+BEGIN_SRC sh
+      taskset 0xf0 process
+      # 或
+      taskset -p 0xf0 $(pidof processname)
+      # 或
+      taskset -pc cpu-list $(pidof processname)
+      # 查看 processname 的 cpu affinity
+      taskset -p $(pidof processname)
+   #+END_SRC
+
+
+* interrupt view HOWTO
+  + lookup the irqnumber and the devname
+    : cpus=$(lscpu | grep -E -e '^CPU\(s\): *[0-9]+' | awk -F" " '{ print $2 }')
+    : ((devcol=cpus+3))
+    : cat /proc/interrupts | grep -v CPU0 | awk -F" " '{printf("%s  %s\n",$1, $'$devcol')}'
+    : for i in $array; do echo -e "cpu $i ************************"; cat /proc/interrupts | grep -v CPU0 | awk -F" " '{printf("%s count %d %s\n",$1, $'$i', $'$devcol')}' | grep -w i40e-eth0-TxRx-71; done | grep -v -e 'count 0'
+  + display the triger counts of the irqnumber assigned.
+    irqnumber: 192; interval: 1s; total: 10s
+    : sar -I 192 1 10
+    -P: cpulist; -I: type; 1: interval
+    : mpstat -P 4,5,6,7 -I SCPU 1 //softirq
+    : mpstat -P 4,5,6,7 -I CPU 1  //hardirq
+
+
+* qemu-img HOWTO
+  + create the child disk based on mother disk.
+    : qemu-img create -f qcow2 -o backing_file=mother_disk.qcow2,size=20G child_disk.qcow2
+  + modify the path of mother-disk
+    : qemu-img rebase -b motherdisk childdisk
+  + make a vm image
+    #+BEGIN_EXAMPLE
+      qemu-system-x86_64 \
+      -m 1024 -smp 2 -machine pc,accel=kvm \
+      -cdrom debian-9.3.0-amd64-xfce-CD-1.iso \
+      -drive file=debian-9.3.0.img,if=none,id=drive-virtio-disk1 \
+      -device virtio-blk-pci,scsi=off,drive=drive-virtio-disk1,id=virtio-disk1 \
+      -boot d \
+      -localtime -name debug-threads=on -vnc 0.0.0.0:10
+    #+END_EXAMPLE
+
+
+* iptables HOWTO
+  + example1: port forward
+    路径: 公网机器 -> 宿主机 -> 虚拟机
+    需要做一个端口转发, 操作示例如下:
+    登录公网主机, 设定访问的目的端口为 2222, 然后使用如下命令操作:
+    : scp -v -P 2222 root@10.12.164.39:/directory/file ./
+    包到达宿主机时, 在宿主机上添加如下nat规则:
+    : sudo iptables -t nat -A PREROUTING -i eth0  -p tcp --dport 2222 -j DNAT --to-destination 192.168.122.237:22
+    这样, 宿主机在做完dnat后就可以将包路由到虚拟机中了.
+
+
+* git HOWTO
+  在某一版本中搜索文本
+  : git grep "Hello" v2.5
+  显示某个文件的所有修改
+  : git log -p <file>
+  谁、在什么时间，修改了文件的什么内容：
+  : git blame <file>
+  生成patch文件: 从AAAA到BBBB commit的
+  : git format-patch AAAA..BBBB
+  将patch文件以邮件发送
+  : git send-email --smtp-server your.mail.server --to whom@where 0001-xxxx.patch
+  放弃工作目录下的所有修改
+  : git reset --hard HEAD
+  移除缓存区的所有文件（i.e. 撤销上次 git add)
+  : git reset HEAD
+  用暂存区全部文件或指定文件替换工作区的文件
+  : git checkout .  or git checkout -- <file>
+  用HEAD指向的master分支中的全部或部分文件替换暂存区和工作区中的文件
+  : git checkout HEAD . or git checkout HEAD <file>
+  删除未跟踪的目录和文件
+  : git clean -d -f
+  查看某个文件是什么时候被删除的
+  : git log -- filename
+  查看某个文件的某一行是什么时候被删除的
+  : git log -S "keywords" -- lib/librte_vhost/vhost_user.c
+  bisect
+  : git bisect start master good-commitid
+  : git bisect good
+  : git bisect bad
+  : git bisect log
+  diff时忽略文件的mode
+  : git config --add core.filemode false
+
+  : git add --patch
+  : git diff --check
+
+* svn HOWTO
+  1. 获取最新的代码
+     : svn update
+  2. 撤销修改
+     : svn revert -R .
+  3. 显示最近的5个commit
+     : svn log -l 5 -v
+  4. commit
+     : svn commit -m "description"
+
+
+* font-monaco HOWTO
+  1. sudo cp monaco.ttf  /usr/share/fonts/
+  2. cd /usr/share/fonts/
+  3. sudo mkfontscale
+  4. sudo mkfontdir
+  5. sudo fc-cache -fv
+  6. reboot system.
+
+
+* r400 graphics card
+  : sudo apt-get install firmware-amd-graphics
+
+
+* install-system HOWTO
+  : apt-get install ibus-pinyin ibus-table-wubi
+  : apt-get install ttf-wqy-*
+  : apt-get install gnome-calculator
+  : apt-get install goldendict
+  : sudo aptitude install firmware-iwlwifi
+  : sudo aptitude install wireless-tools wpasupplicant
+  : iwlist scan
+  #+BEGIN_EXAMPLE
+    is not in the sudoers file.This incident will be reported
+    1. $ chmod +w /etc/sudoers
+    2. $ emacs /etc/sudoers
+       找到这行 root ALL=(ALL) ALL,在他下面添加xxx ALL=(ALL) ALL (这里的xxx是你的用户名)
+       ps:这里说下你可以sudoers添加下面四行中任意一条
+       youuser            ALL=(ALL)                ALL
+       %youuser           ALL=(ALL)                ALL
+       youuser            ALL=(ALL)                NOPASSWD: ALL
+       %youuser           ALL=(ALL)                NOPASSWD: ALL
+       第一行:允许用户youuser执行sudo命令(需要输入密码).
+       第二行:允许用户组youuser里面的用户执行sudo命令(需要输入密码).
+       第三行:允许用户youuser执行sudo命令,并且在执行的时候不输入密码.
+       第四行:允许用户组youuser里面的用户执行sudo命令,并且在执行的时候
+       不输入密码.
+  #+END_EXAMPLE
+  : apt-get install emacs cscope git tree gnuplot
+  : apt-get install libncurses5-dev
+  : apt-get install make gcc automake autoconf
+  : apt-get install build-essential bison flex manpages-dev
+
+
+* tty* HOWTO
+  1. 如何确定/dev/ttyS*有没有真实的连接？
+     : cat /proc/tty/driver/serial
+     : setserial -g /dev/ttyS[0123]
+     #+BEGIN_EXAMPLE
+       /dev/ttyS0, UART: unknown, Port: 0x03f8, IRQ: 4
+       /dev/ttyS1, UART: unknown, Port: 0x02f8, IRQ: 3
+       /dev/ttyS2, UART: unknown, Port: 0x03e8, IRQ: 4
+       /dev/ttyS3, UART: unknown, Port: 0x02e8, IRQ: 3
+     #+END_EXAMPLE
+  2. terminal/console
+     terminal: 表示一个物理设备或者一个虚拟的设备，可以方便人们用来与计算机进
+     行交互；
+     console: 实际上是一个地位比较特殊的terminal，带有与其他terminal相
+     比，除了input/output，还可以controll的味道；在linux的命令行参数中，
+     指定console参数是指系统启动时的信息要dump到什么地方去，配置多个
+     console那就dump到多个console上去；此外在linux中， tty0一般指VGA/keyboard这
+     种terminal； ttyS0一般指serial这种terminal.
