@@ -27,6 +27,23 @@
     : rpm2cpio pkgname | cpio -ivd
 
 
+* centos firewalld HOWTO
+  1. server cmd：
+     : systemctl start firewalld
+     : systemctl stop firewalld
+     : systemctl status firewalld
+     : systemctl disable firewalld
+     : systemctl enable firewalld
+  2. open a port
+     : firewall-cmd --zone=public --add-port=80/tcp --permanent
+  3. reload
+     : firewall-cmd --reload
+  4. lookup
+     : firewall-cmd --zone= public --query-port=80/tcp
+  5. delete
+     : firewall-cmd --zone= public --remove-port=80/tcp --permanent
+
+
 * ssh HOWTO
   + how to login server without password?
     1. install sshpass
@@ -72,19 +89,38 @@
 
 
 * nfs HOWTO
-  1. install
-     server:
-     : apt-get install nfs-kernel-server portmap
-     client:
-     : apt-get install nfs-utils nfs-utils-lib
-  2. server configuration
-     : /etc/exports
-     : /home/freeman/Workstation *(rw,sync,no_root_squash)
-  3. startup
-     : systemctl reload nfs-kernel-server.service
-     : systemctl start nfs-kernel-server.service
-  4. client mount
-     : mount -t nfs -o nolock host-ipaddr:/home/freeman/Workstation /mnt/sdisk2
+** centos
+   1. install
+      server:
+      : yum install nfs-utils rpcbind
+   2. 启动rpcbind服务
+      : systemctl status rpcbind.service
+   3. 启动nfs服务
+      ： systemctl status nfs
+   4. 查看nfs服务向rpc注册的端口信息
+      :  rpcinfo -p localhost
+   5. export mount dir
+      : vi /etc/exports
+      : /mnt     192.168.122.0/24(rw,sync,no_root_squash)
+   6. 重新加载nfs配置
+      : exportfs -rv
+   7. 查看nfs服务器挂载情况
+      : showmount -e localhost
+
+** debian
+   1. install
+      server:
+      : apt-get install nfs-kernel-server portmap
+      client:
+      : apt-get install nfs-utils nfs-utils-lib
+   2. server configuration
+      : /etc/exports
+      : /home/freeman/Workstation *(rw,sync,no_root_squash)
+   3. startup
+      : systemctl reload nfs-kernel-server.service
+      : systemctl start nfs-kernel-server.service
+   4. client mount
+      : mount -t nfs -o nolock host-ipaddr:/home/freeman/Workstation /mnt/sdisk2
 
 
 * rdesktop HOWTO
@@ -289,6 +325,7 @@
   : git add --patch
   : git diff --check
 
+
 * svn HOWTO
   1. 获取最新的代码
      : svn update
@@ -321,6 +358,7 @@
   : sudo aptitude install firmware-iwlwifi
   : sudo aptitude install wireless-tools wpasupplicant
   : iwlist scan
+  : sudo yum install -y gnome-calculator.x86_64
   #+BEGIN_EXAMPLE
     is not in the sudoers file.This incident will be reported
     1. $ chmod +w /etc/sudoers
@@ -341,6 +379,7 @@
   : apt-get install libncurses5-dev
   : apt-get install make gcc automake autoconf
   : apt-get install build-essential bison flex manpages-dev
+  : sudo yum install -y man-pages
 
 
 * tty* HOWTO
@@ -361,3 +400,7 @@
      指定console参数是指系统启动时的信息要dump到什么地方去，配置多个
      console那就dump到多个console上去；此外在linux中， tty0一般指VGA/keyboard这
      种terminal； ttyS0一般指serial这种terminal.
+
+
+* dropwatch
+  : dropwatch -l kas
