@@ -379,7 +379,13 @@
   : apt-get install libncurses5-dev
   : apt-get install make gcc automake autoconf
   : apt-get install build-essential bison flex manpages-dev
-  : sudo yum install -y man-pages
+  : sudo yum install -y man-pages mousepad gcc* glib* gtk* ncurses* libXpm* giflib* libjpeg* libtiff* libpng*
+  : gnutls gnutls-utils gnutls-devel cscope git tree gnuplot xfce4-clipman-plugin nfs-utils rpcbind net-tools tcpdump libncurses5-dev make gcc automake autoconf build-essential bison flex man-pages
+  : xfce4-clipman-plugin
+  : nfs-utils rpcbind
+  : net-tools tcpdump
+  : gtk3
+
 
 
 * tty* HOWTO
@@ -404,3 +410,7 @@
 
 * dropwatch
   : dropwatch -l kas
+
+* markdown HOWTO
+  1. how to generate directories for the markdown file
+     : pandoc -s --toc --toc-depth=2 ipsec_howto.md -o ipsec_howto.md
